@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+  push:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate repository structure
+        shell: bash
+        run: |
+          required_files=(
+            "README.md"
+            "CONTRIBUTING.md"
+            "LICENSE"
+            ".github/CODEOWNERS"
+            ".github/pull_request_template.md"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [[ ! -s "$file" ]]; then
+              echo "::error file=$file::Required file is missing or empty."
+              exit 1
+            fi
+          done
+
+      - name: Detect infrastructure files
+        id: detect
+        shell: bash
+        run: |
+          if find . -type f -name "*.tf" \
+            -not -path "./.git/*" \
+            -not -path "*/.terraform/*" \
+            -print -quit | grep -q .; then
+            echo "terraform=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "terraform=false" >> "$GITHUB_OUTPUT"
+            echo "No Terraform files found."
+          fi
+
+          if {
+            [[ -d "k8s" ]] &&
+            find k8s -type f \( -name "*.yaml" -o -name "*.yml" \) \
+              -print -quit | grep -q .;
+          } || {
+            [[ -d "manifests" ]] &&
+            find manifests -type f \( -name "*.yaml" -o -name "*.yml" \) \
+              -print -quit | grep -q .;
+          }; then
+            echo "kubernetes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "kubernetes=false" >> "$GITHUB_OUTPUT"
+            echo "No Kubernetes manifests found."
+          fi
+
+      - name: Set up Terraform
+        if: steps.detect.outputs.terraform == 'true'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        if: steps.detect.outputs.terraform == 'true'
+        run: terraform fmt -check -recursive .
+
+      - name: Initialize and validate Terraform modules
+        if: steps.detect.outputs.terraform == 'true'
+        shell: bash
+        run: |
+          mapfile -t terraform_directories < <(
+            find . -type f -name "*.tf" \
+              -not -path "./.git/*" \
+              -not -path "*/.terraform/*" \
+              -printf '%h\n' |
+            sort -u
+          )
+
+          for directory in "${terraform_directories[@]}"; do
+            echo "::group::Terraform validation: $directory"
+            terraform -chdir="$directory" init \
+              -backend=false \
+              -input=false \
+              -no-color
+            terraform -chdir="$directory" validate -no-color
+            echo "::endgroup::"
+          done
+
+      - name: Validate Kubernetes manifests
+        if: steps.detect.outputs.kubernetes == 'true'
+        shell: bash
+        run: |
+          for directory in k8s manifests; do
+            if [[ -d "$directory" ]] &&
+              find "$directory" -type f \( -name "*.yaml" -o -name "*.yml" \) \
+                -print -quit | grep -q .; then
+              echo "::group::Kubernetes validation: $directory"
+              docker run --rm \
+                --volume "$PWD:/workspace:ro" \
+                ghcr.io/yannh/kubeconform:v0.8.0 \
+                -strict \
+                -summary \
+                -ignore-missing-schemas \
+                "/workspace/$directory"
+              echo "::endgroup::"
+            fi
+          done
+
+      - name: Report validation scope
+        shell: bash
+        run: |
+          echo "Terraform detected: ${{ steps.detect.outputs.terraform }}"
+          echo "Kubernetes manifests detected: ${{ steps.detect.outputs.kubernetes }}"
