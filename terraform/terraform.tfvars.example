@@ -1,5 +1,7 @@
 aws_region = "us-east-1"
 
+vpc_link_security_group_id = "sg-xxxxxxxxxxxxxxxxx"
+
 eks_cluster_role_arn = "ARN_DA_LAB_EKS_CLUSTER_ROLE"
 
-vpc_link_security_group_id = "sg-xxxxxxxxxxxxxxxxx"
+eks_node_role_arn = "ARN_DA_LAB_EKS_NODE_ROLE"
