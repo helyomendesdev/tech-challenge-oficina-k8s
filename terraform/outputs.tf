@@ -18,3 +18,13 @@ output "private_subnet_ids" {
     aws_subnet.private_b.id
   ]
 }
+
+output "alb_security_group_id" {
+  description = "ID do Security Group do ALB interno."
+  value       = aws_security_group.alb.id
+}
+
+output "alb_listener_arn" {
+  description = "ARN do listener HTTP do ALB interno."
+  value       = aws_lb_listener.http.arn
+}
