@@ -43,3 +43,8 @@ output "alb_target_group_arn" {
   description = "ARN do Target Group do EKS."
   value       = aws_lb_target_group.eks.arn
 }
+
+output "ecr_repository_url" {
+  description = "URL do repositório ECR da API."
+  value       = aws_ecr_repository.api.repository_url
+}
