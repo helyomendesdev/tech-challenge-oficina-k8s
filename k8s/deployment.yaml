@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: <ECR>/oficina-app:<TAG>
+          image: <ECR_IMAGE>
           imagePullPolicy: IfNotPresent
 
           ports:

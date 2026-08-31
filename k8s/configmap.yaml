@@ -3,11 +3,15 @@ kind: ConfigMap
 metadata:
   name: oficina-config
   namespace: oficina
+
 data:
   DJANGO_DEBUG: "False"
   DJANGO_SETTINGS_MODULE: "app.settings"
   DJANGO_ALLOWED_HOSTS: "*"
+
+  DB_HOST: "<RDS_ENDPOINT>"
   DB_PORT: "5432"
+
   SECURE_SSL_REDIRECT: "False"
   DJANGO_LOG_FILE: "/tmp/oficina_atividades.log"
   STATIC_ROOT: "/app/staticfiles"
