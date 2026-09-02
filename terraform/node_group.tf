@@ -26,3 +26,8 @@ resource "aws_eks_node_group" "main" {
     aws_eks_cluster.main
   ]
 }
+
+resource "aws_autoscaling_attachment" "eks_target_group" {
+  autoscaling_group_name = aws_eks_node_group.main.resources[0].autoscaling_groups[0].name
+  lb_target_group_arn    = aws_lb_target_group.eks.arn
+}

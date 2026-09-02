@@ -18,24 +18,13 @@ resource "aws_security_group" "eks" {
   }
 }
 
-resource "aws_vpc_security_group_ingress_rule" "alb_from_vpc_link" {
-  security_group_id            = aws_security_group.alb.id
-  referenced_security_group_id = var.vpc_link_security_group_id
-
-  from_port   = 8000
-  to_port     = 8000
-  ip_protocol = "tcp"
-
-  description = "Permite acesso ao ALB a partir do VPC Link"
-}
-
 resource "aws_vpc_security_group_ingress_rule" "eks_from_alb" {
   security_group_id            = aws_security_group.eks.id
   referenced_security_group_id = aws_security_group.alb.id
 
-  from_port   = 8000
-  to_port     = 8000
+  from_port   = 30080
+  to_port     = 30080
   ip_protocol = "tcp"
 
-  description = "Permite acesso ao EKS a partir do ALB"
+  description = "Permite acesso ao NodePort da aplicação a partir do ALB"
 }

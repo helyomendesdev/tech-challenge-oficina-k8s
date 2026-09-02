@@ -19,16 +19,17 @@ resource "aws_lb" "internal" {
 
 resource "aws_lb_target_group" "eks" {
   name        = "oficina-eks-tg"
-  port        = 8000
+  port        = 30080
   protocol    = "HTTP"
-  target_type = "ip"
-  vpc_id      = aws_vpc.main.id
+  target_type = "instance"
+
+  vpc_id = aws_vpc.main.id
 
   health_check {
     enabled             = true
     protocol            = "HTTP"
     path                = "/health/ready/"
-    port                = "8000"
+    port                = "30080"
     healthy_threshold   = 2
     unhealthy_threshold = 2
     timeout             = 5
