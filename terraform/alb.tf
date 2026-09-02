@@ -27,7 +27,7 @@ resource "aws_lb_target_group" "eks" {
   health_check {
     enabled             = true
     protocol            = "HTTP"
-    path                = "/health"
+    path                = "/health/ready/"
     port                = "8000"
     healthy_threshold   = 2
     unhealthy_threshold = 2
