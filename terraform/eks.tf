@@ -2,6 +2,8 @@ resource "aws_eks_cluster" "main" {
   name     = "oficina-eks"
   role_arn = var.eks_cluster_role_arn
 
+  version = "1.35"
+
   vpc_config {
     subnet_ids = [
       aws_subnet.private_a.id,

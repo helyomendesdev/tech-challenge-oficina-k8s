@@ -7,7 +7,7 @@ metadata:
 data:
   DJANGO_DEBUG: "False"
   DJANGO_SETTINGS_MODULE: "app.settings"
-  DJANGO_ALLOWED_HOSTS: "*"
+  DJANGO_ALLOWED_HOSTS: "*" # Confirmar os hosts/domínios finais da API e substituir "*" por hosts específicos.
 
   DB_HOST: "<RDS_ENDPOINT>"
   DB_PORT: "5432"
