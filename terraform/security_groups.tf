@@ -26,7 +26,7 @@ resource "aws_vpc_security_group_ingress_rule" "eks_from_alb" {
   to_port     = 30080
   ip_protocol = "tcp"
 
-  description = "Permite acesso ao NodePort da aplicação a partir do ALB"
+  description = "Permite acesso ao NodePort da aplicacao a partir do ALB"
 }
 
 resource "aws_vpc_security_group_egress_rule" "eks_https" {
@@ -37,5 +37,5 @@ resource "aws_vpc_security_group_egress_rule" "eks_https" {
   to_port     = 443
   ip_protocol = "tcp"
 
-  description = "Permite saída HTTPS para serviços externos como New Relic"
+  description = "Permite saida HTTPS para servicos externos como New Relic"
 }
