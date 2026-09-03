@@ -18,15 +18,40 @@ resource "aws_security_group" "eks" {
   }
 }
 
-resource "aws_vpc_security_group_ingress_rule" "eks_from_alb" {
-  security_group_id            = aws_security_group.eks.id
+resource "aws_vpc_security_group_ingress_rule" "alb_from_vpc" {
+  security_group_id = aws_security_group.alb.id
+
+  cidr_ipv4   = aws_vpc.main.cidr_block
+  from_port   = 8000
+  to_port     = 8000
+  ip_protocol = "tcp"
+
+  description = "Acesso ao listener do ALB a partir da VPC"
+}
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_nodes" {
+  security_group_id            = aws_security_group.alb.id
+  referenced_security_group_id = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+
+  from_port   = 30080
+  to_port     = 30080
+  ip_protocol = "tcp"
+
+  description = "ALB para o NodePort da aplicacao"
+}
+
+# Os nodes de um managed node group sem launch template recebem o cluster
+# security group criado pelo proprio EKS, nao o aws_security_group.eks — este
+# fica anexado as ENIs do control plane. A regra precisa ir no SG dos nodes.
+resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb" {
+  security_group_id            = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
   referenced_security_group_id = aws_security_group.alb.id
 
   from_port   = 30080
   to_port     = 30080
   ip_protocol = "tcp"
 
-  description = "Permite acesso ao NodePort da aplicacao a partir do ALB"
+  description = "NodePort a partir do ALB"
 }
 
 resource "aws_vpc_security_group_egress_rule" "eks_https" {

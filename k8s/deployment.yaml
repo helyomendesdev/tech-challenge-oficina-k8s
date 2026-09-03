@@ -25,6 +25,9 @@ spec:
         app: oficina-app
 
     spec:
+      imagePullSecrets:
+        - name: ecr-registry-secret
+
       containers:
         - name: app
           image: <ECR_IMAGE>
@@ -55,6 +58,7 @@ spec:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 20
+            timeoutSeconds: 5
 
           readinessProbe:
             httpGet:
@@ -62,6 +66,7 @@ spec:
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 5
 
           startupProbe:
             httpGet:

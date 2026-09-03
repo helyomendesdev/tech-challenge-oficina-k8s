@@ -16,9 +16,12 @@ spec:
     spec:
       restartPolicy: Never
 
+      imagePullSecrets:
+        - name: ecr-registry-secret
+
       containers:
         - name: migrate
-          image: <IMAGEM_ECR_DA_API>
+          image: <ECR_IMAGE>
           imagePullPolicy: IfNotPresent
 
           command:

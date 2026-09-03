@@ -48,3 +48,8 @@ output "ecr_repository_url" {
   description = "URL do repositório ECR da API."
   value       = aws_ecr_repository.api.repository_url
 }
+
+output "eks_cluster_security_group_id" {
+  description = "Security group que os nodes usam — e o que o RDS deve autorizar na 5432."
+  value       = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+}
