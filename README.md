@@ -1002,7 +1002,6 @@ Entre as decisões documentadas estão:
 * Gerenciamento dos Security Groups do EKS;
 * Limitações do ambiente AWS Academy;
 * Utilização de um único NAT Gateway;
-* Limitações relacionadas ao Amazon RDS Enhanced Monitoring.
 
 ---
 
