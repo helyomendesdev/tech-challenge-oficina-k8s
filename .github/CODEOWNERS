@@ -1,6 +1,16 @@
-# Responsáveis pelo repositório
-* @sophiasussa @helyomendesdev
+# CODEOWNERS — Tech Challenge Fase 3
+# Repo: tech-challenge-oficina-k8s
+# Responsável: Sophia Sussa Campos Bastos (infraestrutura)
 
-# Governança
+# Responsável padrão (fallback)
+* @helyomendesdev
+
+# Infraestrutura Kubernetes
+/infra/ @helyomendesdev
+/k8s/ @helyomendesdev
+/terraform/ @helyomendesdev
+/scripts/ @helyomendesdev
+/docs/ @helyomendesdev
+
+# CI/CD
 /.github/ @helyomendesdev
-/CONTRIBUTING.md @helyomendesdev
