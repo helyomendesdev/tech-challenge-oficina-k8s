@@ -1,0 +1,28 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+crash.log
+crash.*.log
+
+# Terraform lock file
+# NÃO ignorar .terraform.lock.hcl
+
+# Kubernetes - arquivos com dados sensíveis
+k8s/secret.yaml
+
+# Ambiente / variáveis locais
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# IDE / sistema operacional
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

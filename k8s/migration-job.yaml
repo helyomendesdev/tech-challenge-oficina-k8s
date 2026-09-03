@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oficina-migrate
+  namespace: oficina
+
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300
+
+  template:
+    metadata:
+      labels:
+        app: oficina-migrate
+
+    spec:
+      restartPolicy: Never
+
+      imagePullSecrets:
+        - name: ecr-registry-secret
+
+      containers:
+        - name: migrate
+          image: <ECR_IMAGE>
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - python
+            - manage.py
+            - migrate
+            - --noinput
+
+          envFrom:
+            - configMapRef:
+                name: oficina-config
+
+            - secretRef:
+                name: oficina-secret
