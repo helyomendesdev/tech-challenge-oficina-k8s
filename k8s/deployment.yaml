@@ -5,6 +5,8 @@ metadata:
   namespace: oficina
   labels:
     app: oficina-app
+    env: homologacao
+    version: "1.0.0"
 
 spec:
   replicas: 2
@@ -23,6 +25,8 @@ spec:
     metadata:
       labels:
         app: oficina-app
+        env: homologacao
+        version: "1.0.0"
 
     spec:
       imagePullSecrets:
@@ -42,6 +46,12 @@ spec:
 
             - secretRef:
                 name: oficina-secret
+
+            # Licenca do New Relic (NEW_RELIC_LICENSE_KEY). Opcional: sem o Secret a
+            # aplicacao sobe normalmente, apenas sem APM.
+            - secretRef:
+                name: newrelic-license
+                optional: true
 
           resources:
             requests:
