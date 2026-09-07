@@ -15,3 +15,16 @@ data:
   SECURE_SSL_REDIRECT: "False"
   DJANGO_LOG_FILE: "/tmp/oficina_atividades.log"
   STATIC_ROOT: "/app/staticfiles"
+
+  # Observabilidade (New Relic APM) — a licenca vem do Secret `newrelic-license`,
+  # nunca deste ConfigMap. Sem o Secret a aplicacao sobe sem APM (entrypoint checa a variavel).
+  # NEW_RELIC_APP_NAME muda por ambiente (oficina-api-hml / oficina-api-prd) para nao
+  # misturar metricas de homologacao e producao na mesma entidade.
+  NEW_RELIC_APP_NAME: "oficina-api-hml"
+  NEW_RELIC_DISTRIBUTED_TRACING_ENABLED: "true"
+  NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED: "false" # log JSON ja sai no stdout
+
+  # Identificacao do servico nos eventos/logs (lidas em app/settings.py)
+  SERVICE_NAME: "oficina-api"
+  SERVICE_ENVIRONMENT: "homologacao" # homologacao | producao — filtro obrigatorio em dashboards e alertas
+  SERVICE_VERSION: "1.0.0"
