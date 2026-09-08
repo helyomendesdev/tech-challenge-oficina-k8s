@@ -13,9 +13,6 @@ concurrency:
   group: cd-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-
 jobs:
   terraform-validate:
     name: Terraform Validate
@@ -57,7 +54,15 @@ jobs:
         with:
           terraform_version: "1.5.0"
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ secrets.AWS_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Configure AWS credentials (static)
+        if: ${{ secrets.AWS_ROLE_ARN == '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -79,10 +84,23 @@ jobs:
 
       - name: Terraform Plan
         run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            ENV="producao"
+          else
+            ENV="homologacao"
+          fi
           terraform plan \
-            -var-file=terraform.tfvars.example \
-            -var="environment=${{ github.ref_name }}" \
+            -var-file=environments/${ENV}/terraform.tfvars \
+            -var="eks_cluster_role_arn=${{ secrets.EKS_CLUSTER_ROLE_ARN }}" \
+            -var="eks_node_role_arn=${{ secrets.EKS_NODE_ROLE_ARN }}" \
             -out=tfplan
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.ref_name }}
+          path: terraform/tfplan
+          retention-days: 1
 
   terraform-apply:
     name: Terraform Apply
@@ -91,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
-      name: ${{ github.ref_name }}
+      name: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
     defaults:
       run:
         working-directory: terraform
@@ -103,13 +121,27 @@ jobs:
         with:
           terraform_version: "1.5.0"
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ secrets.AWS_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Configure AWS credentials (static)
+        if: ${{ secrets.AWS_ROLE_ARN == '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ github.ref_name }}
+          path: terraform/
 
       - name: Terraform Init
         run: |
@@ -126,6 +158,6 @@ jobs:
       - name: Terraform Apply
         run: |
           terraform apply \
-            -var-file=terraform.tfvars.example \
-            -var="environment=${{ github.ref_name }}" \
-            -auto-approve
+            -input=false \
+            -auto-approve \
+            tfplan
