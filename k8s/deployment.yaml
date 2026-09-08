@@ -47,6 +47,9 @@ spec:
             - secretRef:
                 name: oficina-secret
 
+            - secretRef:
+                name: oficina-auth
+
             # Licenca do New Relic (NEW_RELIC_LICENSE_KEY). Opcional: sem o Secret a
             # aplicacao sobe normalmente, apenas sem APM.
             - secretRef:

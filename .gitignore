@@ -12,6 +12,7 @@ crash.*.log
 
 # Kubernetes - arquivos com dados sensíveis
 k8s/secret.yaml
+k8s/oficina-auth.yaml
 
 # Ambiente / variáveis locais
 .env
