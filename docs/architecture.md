@@ -16,6 +16,8 @@ A solução utiliza:
 
 A aplicação é executada em um cluster Amazon EKS localizado em subnets privadas. O banco de dados PostgreSQL permanece separado do cluster Kubernetes e é executado utilizando Amazon RDS.
 
+> Este documento descreve o raciocínio arquitetural. Os valores concretos de configuração (portas, CIDRs, réplicas, thresholds de probes etc.) estão em [kubernetes.md](kubernetes.md), [rede-e-seguranca.md](rede-e-seguranca.md) e [operacao.md](operacao.md).
+
 ---
 
 ## Arquitetura Geral
