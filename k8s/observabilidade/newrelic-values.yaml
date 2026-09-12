@@ -1,0 +1,105 @@
+# Values do chart newrelic/nri-bundle para o cluster oficina-eks.
+#
+# Instalado por scripts/observabilidade.sh (helm upgrade --install). Este arquivo
+# NAO contem a license key: ela vem do Secret `newrelic-license` (mesmo nome e
+# mesma chave que o Deployment da aplicacao ja usa), copiado para o namespace
+# `newrelic` pelo script.
+#
+# Dimensionado para os nos t3.small (2 vCPU, 2 GiB) do node group: so o que
+# gera CPU/memoria por pod, replicas do HPA e eventos do cluster. O que ficou
+# fora, e por que, esta em k8s/observabilidade/README.md.
+
+global:
+  cluster: oficina-eks
+  customSecretName: newrelic-license
+  customSecretLicenseKey: NEW_RELIC_LICENSE_KEY
+  # Menos atributos e intervalo maior de coleta: cabe no plano gratuito e nos nos pequenos.
+  lowDataMode: true
+
+# Agente de infraestrutura: um DaemonSet (kubelet + cAdvisor de cada no) e um
+# Deployment que le o kube-state-metrics. Gera K8sNodeSample, K8sPodSample,
+# K8sContainerSample, K8sDeploymentSample, K8sHpaSample...
+newrelic-infrastructure:
+  enabled: true
+  # O control plane do EKS e gerenciado pela AWS e nao e alcancavel de dentro do
+  # cluster; o scraper de etcd/scheduler/controller-manager so geraria erro.
+  controlPlane:
+    enabled: false
+  kubelet:
+    kubelet:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 100M
+        limits:
+          memory: 300M
+    agent:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 100M
+        limits:
+          memory: 300M
+  ksm:
+    ksm:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 100M
+        limits:
+          memory: 500M
+    forwarder:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 100M
+        limits:
+          memory: 500M
+
+# Obrigatorio para o newrelic-infrastructure (estado de Deployments, HPA, ReplicaSets).
+kube-state-metrics:
+  enabled: true
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# Eventos do Kubernetes (Scheduled, Pulled, Killing, BackOff, OOMKilled...) como
+# InfrastructureEvent. Leve, e e o que explica um restart no meio do video.
+nri-kube-events:
+  enabled: true
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# --- Desligados de proposito ---
+# Logs: o agente APM da aplicacao ja encaminha o log JSON do stdout
+# (NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED=true no ConfigMap). Um
+# fluent-bit por no duplicaria cada linha e o custo em memoria.
+newrelic-logging:
+  enabled: false
+# Webhook que injeta NEW_RELIC_METADATA_* nos pods para ligar APM <-> entidade
+# K8s. Exige restart dos pods da aplicacao e mais um pod; fica para depois.
+nri-metadata-injection:
+  enabled: false
+nri-prometheus:
+  enabled: false
+newrelic-prometheus-agent:
+  enabled: false
+newrelic-pixie:
+  enabled: false
+pixie-chart:
+  enabled: false
+nr-ebpf-agent:
+  enabled: false
+k8s-agents-operator:
+  enabled: false
+newrelic-infra-operator:
+  enabled: false
+newrelic-k8s-metrics-adapter:
+  enabled: false
