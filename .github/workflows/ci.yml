@@ -112,18 +112,26 @@ jobs:
         shell: bash
         run: |
           for directory in k8s manifests; do
-            if [[ -d "$directory" ]] &&
-              find "$directory" -type f \( -name "*.yaml" -o -name "*.yml" \) \
-                -print -quit | grep -q .; then
-              echo "::group::Kubernetes validation: $directory"
-              docker run --rm \
-                --volume "$PWD:/workspace:ro" \
-                ghcr.io/yannh/kubeconform:v0.8.0 \
-                -strict \
-                -summary \
-                -ignore-missing-schemas \
-                "/workspace/$directory"
-              echo "::endgroup::"
+            if [[ -d "$directory" ]]; then
+              # Excluir arquivos de values de Helm (não são manifests K8s) antes do kubeconform
+              mapfile -d '' manifest_files < <(
+                find "$directory" -type f \( -name "*.yaml" -o -name "*.yml" \) \
+                  ! -iname "*values*.y*ml" -print0
+              )
+              if [[ ${#manifest_files[@]} -gt 0 ]]; then
+                echo "::group::Kubernetes validation: $directory (${#manifest_files[@]} manifests)"
+                docker run --rm \
+                  --volume "$PWD:/workspace:ro" \
+                  -w /workspace \
+                  ghcr.io/yannh/kubeconform:v0.8.0 \
+                  -strict \
+                  -summary \
+                  -ignore-missing-schemas \
+                  "${manifest_files[@]/#\/workspace\//.\/}"
+                echo "::endgroup::"
+              else
+                echo "Kubernetes validation: '$directory' sem manifests após exclusão de values"
+              fi
             fi
           done
 

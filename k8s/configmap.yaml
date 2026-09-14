@@ -22,7 +22,7 @@ data:
   # misturar metricas de homologacao e producao na mesma entidade.
   NEW_RELIC_APP_NAME: "oficina-api-hml"
   NEW_RELIC_DISTRIBUTED_TRACING_ENABLED: "true"
-  NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED: "false" # log JSON ja sai no stdout
+  NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED: "true" # agente APM encaminha o log JSON do stdout para o New Relic Logs (sem coletor no cluster)
 
   # Identificacao do servico nos eventos/logs (lidas em app/settings.py)
   SERVICE_NAME: "oficina-api"
