@@ -13,9 +13,6 @@ concurrency:
   group: cd-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-
 jobs:
   terraform-validate:
     name: Terraform Validate
@@ -46,6 +43,18 @@ jobs:
     needs: [terraform-validate]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+    env:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      TF_LOCK_TABLE: ${{ secrets.TF_LOCK_TABLE }}
+      EKS_CLUSTER_ROLE_ARN: ${{ secrets.EKS_CLUSTER_ROLE_ARN }}
+      EKS_NODE_ROLE_ARN: ${{ secrets.EKS_NODE_ROLE_ARN }}
     defaults:
       run:
         working-directory: terraform
@@ -57,32 +66,56 @@ jobs:
         with:
           terraform_version: "1.5.0"
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ env.AWS_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS credentials (static)
+        if: ${{ env.AWS_ROLE_ARN == '' }}
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ env.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
         run: |
           terraform init \
-            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="key=k8s/${{ github.ref_name }}/terraform.tfstate" \
-            -backend-config="region=${{ secrets.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}"
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=${TF_LOCK_TABLE}"
 
       - name: Select Workspace
         run: |
           terraform workspace select ${{ github.ref_name }} || terraform workspace new ${{ github.ref_name }}
 
       - name: Terraform Plan
+        env:
+          EKS_CLUSTER_ROLE_ARN: ${{ secrets.EKS_CLUSTER_ROLE_ARN }}
+          EKS_NODE_ROLE_ARN: ${{ secrets.EKS_NODE_ROLE_ARN }}
         run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            ENV="producao"
+          else
+            ENV="homologacao"
+          fi
           terraform plan \
-            -var-file=terraform.tfvars.example \
-            -var="environment=${{ github.ref_name }}" \
+            -var-file=environments/${ENV}/terraform.tfvars \
+            -var="eks_cluster_role_arn=${EKS_CLUSTER_ROLE_ARN}" \
+            -var="eks_node_role_arn=${EKS_NODE_ROLE_ARN}" \
             -out=tfplan
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.ref_name }}
+          path: terraform/tfplan
+          retention-days: 1
 
   terraform-apply:
     name: Terraform Apply
@@ -91,7 +124,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
-      name: ${{ github.ref_name }}
+      name: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+    env:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      TF_LOCK_TABLE: ${{ secrets.TF_LOCK_TABLE }}
     defaults:
       run:
         working-directory: terraform
@@ -103,21 +144,35 @@ jobs:
         with:
           terraform_version: "1.5.0"
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ env.AWS_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS credentials (static)
+        if: ${{ env.AWS_ROLE_ARN == '' }}
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ env.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ github.ref_name }}
+          path: terraform/
 
       - name: Terraform Init
         run: |
           terraform init \
-            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="key=k8s/${{ github.ref_name }}/terraform.tfstate" \
-            -backend-config="region=${{ secrets.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}"
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=${TF_LOCK_TABLE}"
 
       - name: Select Workspace
         run: |
@@ -126,6 +181,6 @@ jobs:
       - name: Terraform Apply
         run: |
           terraform apply \
-            -var-file=terraform.tfvars.example \
-            -var="environment=${{ github.ref_name }}" \
-            -auto-approve
+            -input=false \
+            -auto-approve \
+            tfplan
