@@ -122,6 +122,7 @@ jobs:
                 -strict \
                 -summary \
                 -ignore-missing-schemas \
+                -skip '(^|.*/)[^/]*values\.ya?ml$' \
                 "/workspace/$directory"
               echo "::endgroup::"
             fi
