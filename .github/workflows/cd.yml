@@ -4,6 +4,12 @@ on:
   push:
     branches: [main, develop]
   workflow_dispatch:
+    inputs:
+      authorize_apply:
+        description: "Autoriza o terraform apply real neste run"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -14,6 +20,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Decide se os jobs que falam com a AWS podem rodar. `secrets` nao existe no
+  # `if` de job, entao a checagem vira output deste job. Sem credencial o CD fica
+  # verde com os jobs de AWS pulados, em vez de vermelho em todo push.
+  preflight:
+    name: Preflight (credenciais AWS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      has_aws: ${{ steps.check.outputs.has_aws }}
+    env:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      TF_LOCK_TABLE: ${{ secrets.TF_LOCK_TABLE }}
+    steps:
+      - name: Verifica credenciais e backend
+        id: check
+        run: |
+          missing=()
+          [ -n "${AWS_REGION}" ] || missing+=("AWS_REGION")
+          [ -n "${TF_STATE_BUCKET}" ] || missing+=("TF_STATE_BUCKET")
+          [ -n "${TF_LOCK_TABLE}" ] || missing+=("TF_LOCK_TABLE")
+          if [ -z "${AWS_ROLE_ARN}" ] && [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+            missing+=("AWS_ROLE_ARN ou AWS_ACCESS_KEY_ID")
+          fi
+
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "has_aws=true" >> "$GITHUB_OUTPUT"
+            echo "Credenciais e backend presentes."
+          else
+            echo "has_aws=false" >> "$GITHUB_OUTPUT"
+            printf 'Faltando: %s\n' "${missing[*]}"
+            echo "::notice title=Sem credenciais AWS::Os jobs de Terraform que falam com a AWS serao pulados. As credenciais do AWS Academy Learner Lab expiram a cada sessao: recadastre os secrets e rode o CD por workflow_dispatch."
+          fi
+
   terraform-validate:
     name: Terraform Validate
     runs-on: ubuntu-latest
@@ -40,7 +82,8 @@ jobs:
 
   terraform-plan:
     name: Terraform Plan
-    needs: [terraform-validate]
+    needs: [terraform-validate, preflight]
+    if: needs.preflight.outputs.has_aws == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -117,10 +160,19 @@ jobs:
           path: terraform/tfplan
           retention-days: 1
 
+  # O apply exige disparo manual com autorizacao explicita. Motivo: o init aponta
+  # para um backend S3 (TF_STATE_BUCKET/TF_LOCK_TABLE) que ainda nao existe na
+  # conta. Com state remoto vazio, um apply automatico no push tentaria recriar a
+  # stack inteira -- VPC, subnets, NAT e EIP nao colidem de nome e virariam orfaos
+  # pagos, fora de qualquer state, antes de quebrar em `oficina-eks`.
   terraform-apply:
     name: Terraform Apply
-    needs: [terraform-plan]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    needs: [terraform-plan, preflight]
+    if: >-
+      needs.preflight.outputs.has_aws == 'true' &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.authorize_apply == true &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
