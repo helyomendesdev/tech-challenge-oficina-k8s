@@ -1,8 +1,13 @@
-# Tech Challenge Oficina — Infraestrutura Kubernetes
+# Tech Challenge Oficina — Infraestrutura Compartilhada Kubernetes
 
-Infraestrutura como Código (IaC) e configuração Kubernetes da **Fase 3 do Tech Challenge FIAP**.
+Infraestrutura como Código (IaC) e configuração Kubernetes do Tech Challenge
+Oficina. Este repositório provisiona a infraestrutura compartilhada da
+aplicação principal, OS Service, Execution Service e Billing Service.
 
-Este repositório é responsável pelo provisionamento da infraestrutura necessária para executar a API da oficina na AWS e pelos manifests Kubernetes utilizados para executar, escalar e manter a aplicação.
+Os componentes usam uma VPC e um cluster EKS compartilhados. Bancos e recursos
+específicos continuam sob responsabilidade dos respectivos repositórios.
+Consulte [docs/infrastructure.md](docs/infrastructure.md) para topologia SQS,
+State remoto, bootstrap, outputs, AWS Academy e ordem de provisionamento.
 
 ---
 
@@ -30,7 +35,13 @@ Este repositório concentra a responsabilidade pela infraestrutura Kubernetes e 
 
 # Arquitetura
 
-A aplicação utiliza uma arquitetura baseada em Amazon API Gateway, VPC Link, Application Load Balancer, Amazon EKS e Amazon RDS.
+O diagrama a seguir documenta o fluxo do workload principal existente. A
+infraestrutura compartilhada dos quatro componentes e suas responsabilidades
+estão descritas em [docs/infrastructure.md](docs/infrastructure.md).
+
+A aplicação principal utiliza Amazon API Gateway, VPC Link, Application Load
+Balancer, Amazon EKS e um banco PostgreSQL provisionado pelo repositório de
+banco, não por este Terraform.
 
 O fluxo principal da aplicação é:
 
@@ -137,7 +148,7 @@ A infraestrutura utiliza os seguintes serviços:
 | Application Load Balancer | Distribuição interna do tráfego para a aplicação                   |
 | NAT Gateway               | Acesso de saída à internet para recursos privados                  |
 | Internet Gateway          | Conectividade da VPC com a internet                                |
-| Amazon RDS                | Banco de dados PostgreSQL                                          |
+| Amazon SQS                | Filas FIFO compartilhadas da Saga e suas DLQs                       |
 | AWS IAM                   | Gerenciamento das permissões e roles utilizadas pelos serviços AWS |
 
 ---
@@ -161,6 +172,28 @@ Os principais recursos gerenciados neste repositório são:
 * Amazon ECR;
 * Amazon EKS;
 * Managed Node Group.
+
+O ALB, a VPC e o cluster são únicos e compartilhados pelos quatro componentes.
+Este repositório não provisiona bancos de dados próprios dos serviços.
+
+## Infraestrutura compartilhada da Fase 4
+
+O ECR mantém um repositório por workload (`api`, `os`, `execution` e
+`billing`); as imagens continuam sendo construídas pelos pipelines dos serviços.
+As três filas SQS FIFO (`oficina-billing-comandos.fifo`,
+`oficina-execucao-comandos.fifo` e `oficina-os-saga-respostas.fifo`) e suas DLQs
+seguem o contrato Saga v1.1.0. Os namespaces de aplicação existentes também
+incluem `oficina-execution` e `oficina-billing`.
+
+O State compartilhado usa S3 com versionamento e locking nativo (`use_lockfile`)
+do Terraform >= 1.10. O bucket é criado pela configuração isolada
+`terraform/backend-bootstrap` antes de inicializar o backend principal. Não
+versione `terraform.tfstate`; ele já é ignorado pelo Git.
+
+Esta configuração não cria IAM roles, políticas para os serviços, Service
+Accounts com identidade AWS ou controlador ALB. No AWS Academy, validade local
+não garante permissão de provisionamento. Consulte a documentação vinculada
+acima para dependências, limitações, migração e validações.
 
 O Terraform permite que a infraestrutura seja definida como código, facilitando sua reprodução, manutenção e versionamento.
 
