@@ -162,7 +162,9 @@ O workflow de CD também precisa de secrets configurados no GitHub para
 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`,
 `AWS_REGION`, `TF_STATE_BUCKET`, `EKS_CLUSTER_ROLE_ARN` e
 `EKS_NODE_ROLE_ARN`. A sessão temporária precisa estar válida durante cada
-execução; não cadastre chaves permanentes para contornar sua expiração.
+execução; não cadastre chaves permanentes para contornar sua expiração. Sem
+esses secrets, o workflow executa a validação Terraform e pula os jobs de plan
+e apply dependentes da AWS, em vez de falhar por credenciais ausentes.
 
 O cluster e o Managed Node Group exigem as roles informadas por
 `eks_cluster_role_arn` e `eks_node_role_arn`, além de `iam:PassRole` e permissões

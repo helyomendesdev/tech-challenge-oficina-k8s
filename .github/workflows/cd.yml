@@ -41,9 +41,47 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+  preflight:
+    name: Preflight (AWS credentials)
+    runs-on: ubuntu-latest
+    outputs:
+      has_aws: ${{ steps.check.outputs.has_aws }}
+    steps:
+      - name: Check AWS prerequisites
+        id: check
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+          EKS_CLUSTER_ROLE_ARN: ${{ secrets.EKS_CLUSTER_ROLE_ARN }}
+          EKS_NODE_ROLE_ARN: ${{ secrets.EKS_NODE_ROLE_ARN }}
+        run: |
+          missing=()
+          for name in \
+            AWS_ACCESS_KEY_ID \
+            AWS_SECRET_ACCESS_KEY \
+            AWS_REGION \
+            TF_STATE_BUCKET \
+            EKS_CLUSTER_ROLE_ARN \
+            EKS_NODE_ROLE_ARN; do
+            if [[ -z "${!name}" ]]; then
+              missing+=("$name")
+            fi
+          done
+
+          if ((${#missing[@]} > 0)); then
+            echo "has_aws=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping AWS-dependent CD jobs; missing secrets: ${missing[*]}"
+          else
+            echo "has_aws=true" >> "$GITHUB_OUTPUT"
+          fi
+
   terraform-plan:
     name: Terraform Plan
-    needs: [terraform-validate]
+    needs: [terraform-validate, preflight]
+    if: needs.preflight.outputs.has_aws == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -83,8 +121,8 @@ jobs:
 
   terraform-apply:
     name: Terraform Apply
-    needs: [terraform-plan]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    needs: [terraform-plan, preflight]
+    if: needs.preflight.outputs.has_aws == 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
